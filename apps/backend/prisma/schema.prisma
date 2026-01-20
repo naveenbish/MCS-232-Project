@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  contact   String?
+  address   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  orders    Order[]
+  reviews   Review[]
+
+  @@map("users")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("admin")
+  contact   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  description String?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  foodItems   FoodItem[]
+
+  @@map("categories")
+}
+
+model FoodItem {
+  id                 String        @id @default(uuid())
+  name               String
+  price              Decimal       @db.Decimal(10, 2)
+  categoryId         String        @map("category_id")
+  description        String?
+  image              String?
+  availabilityStatus Boolean       @default(true) @map("availability_status")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  isVeg              Boolean       @default(true) @map("is_veg")
+  category           Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  orderDetails       OrderDetail[]
+  reviews            Review[]
+  inventory          Inventory?
+
+  @@map("food_items")
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  userId          String        @map("user_id")
+  status          OrderStatus   @default(PENDING)
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(10, 2)
+  orderTimestamp  DateTime      @default(now()) @map("order_timestamp")
+  deliveryAddress String?       @map("delivery_address")
+  contactNumber   String?       @map("contact_number")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  orderDetails    OrderDetail[]
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment         Payment?
+
+  @@map("orders")
+}
+
+model OrderDetail {
+  id          String   @id @default(uuid())
+  orderId     String   @map("order_id")
+  itemId      String   @map("item_id")
+  quantity    Int
+  priceAtTime Decimal  @map("price_at_time") @db.Decimal(10, 2)
+  subtotal    Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+  foodItem    FoodItem @relation(fields: [itemId], references: [id])
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_details")
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  orderId           String        @unique @map("order_id")
+  paymentStatus     PaymentStatus @default(PENDING) @map("payment_status")
+  paymentMethod     String?       @map("payment_method")
+  razorpayOrderId   String?       @unique @map("razorpay_order_id")
+  razorpayPaymentId String?       @unique @map("razorpay_payment_id")
+  razorpaySignature String?       @map("razorpay_signature")
+  amount            Decimal       @db.Decimal(10, 2)
+  transactionDate   DateTime?     @map("transaction_date")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  foodItemId String   @map("food_item_id")
+  rating     Int
+  comments   String?
+  reviewDate DateTime @default(now()) @map("review_date")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  foodItem   FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, foodItemId])
+  @@map("reviews")
+}
+
+model Inventory {
+  id            String   @id @default(uuid())
+  foodItemId    String   @unique @map("food_item_id")
+  currentStock  Int      @default(0) @map("current_stock")
+  minStock      Int      @default(10) @map("min_stock")
+  maxStock      Int      @default(100) @map("max_stock")
+  unit          String   @default("units")
+  lastRestocked DateTime? @map("last_restocked")
+  supplier      String?
+  costPrice     Decimal?  @map("cost_price") @db.Decimal(10, 2)
+  location      String?
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  foodItem      FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+
+  @@map("inventory")
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  PREPARED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
