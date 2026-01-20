@@ -1,0 +1,28 @@
+{
+  "name": "cravecart-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:build": "docker-compose build",
+    "prisma:migrate": "cd apps/backend && npm run prisma:migrate",
+    "prisma:seed": "cd apps/backend && npm run prisma:seed",
+    "prisma:studio": "cd apps/backend && npm run prisma:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "packageManager": "npm@10.2.3",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

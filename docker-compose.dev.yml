@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cravecart-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cravecart
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    networks:
+      - cravecart-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (Development with hot reload)
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.dev
+    container_name: cravecart-backend-dev
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/cravecart?schema=public
+      JWT_SECRET: cravecart-super-secret-jwt-key-change-in-production-2024
+      JWT_REFRESH_SECRET: cravecart-super-secret-refresh-jwt-key-change-in-production-2024
+      PORT: 5000
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cravecart-network
+    volumes:
+      - ./apps/backend:/app
+      - /app/node_modules
+      - ./apps/backend/logs:/app/logs
+    command: >
+      sh -c "
+        npx prisma migrate deploy &&
+        npx prisma db seed &&
+        npm run dev
+      "
+
+  # Frontend Next.js App (Development with hot reload)
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile.dev
+    container_name: cravecart-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
+      NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+      JWT_SECRET: cravecart-super-secret-jwt-key-change-in-production-2024
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+    depends_on:
+      - backend
+    networks:
+      - cravecart-network
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+networks:
+  cravecart-network:
+    driver: bridge
+
+volumes:
+  postgres_data_dev:
