@@ -14,7 +14,7 @@ export const foodApi = createApi({
   tagTypes: ['Categories', 'FoodItems', 'FoodItem'],
   endpoints: (build) => ({
     // Get all categories
-    getCategories: build.query<ApiResponse<Category[]>, void>({
+    getCategories: build.query<ApiResponse<{ categories: Category[] }>, void>({
       query: () => '/food/categories',
       providesTags: ['Categories'],
     }),

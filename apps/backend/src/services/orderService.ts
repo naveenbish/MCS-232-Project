@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import { CreateOrderInput, UpdateOrderStatusInput, AppError } from '../types';
 import { OrderStatus } from '@prisma/client';
-import { emitOrderUpdate, emitNewOrderNotification } from '../config/socket';
+import { emitOrderUpdate } from '../config/socket';
 
 /**
  * Create a new order
@@ -81,8 +81,7 @@ export const createOrder = async (userId: string, data: CreateOrderInput) => {
   // Get order with details for response
   const orderWithDetails = await getOrderById(order.id, userId);
 
-  // Emit new order notification to admins
-  emitNewOrderNotification(orderWithDetails);
+  // Note: Admin notification is sent after payment verification, not here
 
   // Return order with details
   return orderWithDetails;
@@ -178,6 +177,7 @@ export const getUserOrders = async (
 
 /**
  * Get all orders (admin only)
+ * By default, excludes PENDING orders (unpaid) unless specifically filtered
  */
 export const getAllOrders = async (
   page: number = 1,
@@ -186,7 +186,10 @@ export const getAllOrders = async (
 ) => {
   const skip = (page - 1) * limit;
 
-  const where = status ? { status } : {};
+  // If specific status requested, use it; otherwise exclude PENDING (unpaid) orders
+  const where = status
+    ? { status }
+    : { status: { not: 'PENDING' as OrderStatus } };
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({

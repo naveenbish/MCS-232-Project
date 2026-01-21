@@ -55,9 +55,6 @@ export const adminOrderApi = createApi({
       invalidatesTags: (result, error, { id }) => [
         { type: 'AdminOrder', id },
         { type: 'AdminOrders', id: 'LIST' },
-        // Also invalidate user's order cache
-        { type: 'Order', id },
-        { type: 'Orders', id: 'LIST' },
       ],
     }),
   }),

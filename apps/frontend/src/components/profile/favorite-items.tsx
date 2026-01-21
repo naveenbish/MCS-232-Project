@@ -10,7 +10,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppDispatch, useAppSelector } from '@/hooks';
 import { addItem } from '@/features/cart/cartSlice';
 import { itemVariants, containerVariants } from '@/lib/animations';
-import Image from 'next/image';
 
 interface FavoriteItem {
   id: string;
@@ -110,11 +109,10 @@ export function FavoriteItems({ userId }: FavoriteItemsProps) {
                         {/* Item Image */}
                         <div className="relative w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
                           {item.imageUrl ? (
-                            <Image
+                            <img
                               src={item.imageUrl}
                               alt={item.name}
-                              fill
-                              className="object-cover"
+                              className="w-full h-full object-cover"
                             />
                           ) : (
                             <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -222,33 +220,38 @@ export function useFavorites(userId?: string) {
   }, [effectiveUserId]);
 
   const toggleFavorite = (itemId: string, itemData?: any) => {
-    const newFavorites = favorites.includes(itemId)
+    const isCurrentlyFavorite = favorites.includes(itemId);
+    const newFavorites = isCurrentlyFavorite
       ? favorites.filter(id => id !== itemId)
       : [...favorites, itemId];
 
     setFavorites(newFavorites);
     localStorage.setItem(`favorite_ids_${effectiveUserId}`, JSON.stringify(newFavorites));
 
-    // If itemData is provided, also update the full favorites list
-    if (itemData) {
-      const fullFavorites = localStorage.getItem(`favorites_${effectiveUserId}`);
-      let items = fullFavorites ? JSON.parse(fullFavorites) : [];
+    // Also update the full favorites list
+    const fullFavorites = localStorage.getItem(`favorites_${effectiveUserId}`);
+    let items: FavoriteItem[] = fullFavorites ? JSON.parse(fullFavorites) : [];
 
-      if (favorites.includes(itemId)) {
-        // Remove from favorites
-        items = items.filter((item: FavoriteItem) => item.id !== itemId);
-        toast.success('Removed from favorites');
-      } else {
-        // Add to favorites
-        items.push({
-          ...itemData,
-          addedAt: new Date().toISOString()
-        });
-        toast.success('Added to favorites');
-      }
-
-      localStorage.setItem(`favorites_${effectiveUserId}`, JSON.stringify(items));
+    if (isCurrentlyFavorite) {
+      // Remove from favorites
+      items = items.filter((item: FavoriteItem) => item.id !== itemId);
+      toast.success('Removed from favorites');
+    } else if (itemData) {
+      // Add to favorites (only if itemData is provided)
+      items.push({
+        id: itemData.id,
+        name: itemData.name,
+        description: itemData.description || '',
+        price: Number(itemData.price),
+        imageUrl: itemData.imageUrl || itemData.image || '',
+        category: itemData.category || 'Food',
+        veg: itemData.veg,
+        addedAt: new Date().toISOString()
+      });
+      toast.success('Added to favorites');
     }
+
+    localStorage.setItem(`favorites_${effectiveUserId}`, JSON.stringify(items));
   };
 
   const isFavorite = (itemId: string) => favorites.includes(itemId);

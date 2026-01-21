@@ -5,21 +5,19 @@ import logger from './logger';
 let razorpayInstance: Razorpay | null = null;
 
 export const initializeRazorpay = (): Razorpay => {
+  // Always create a new instance to pick up any credential changes
+  if (!config.RAZORPAY_KEY_ID || !config.RAZORPAY_KEY_SECRET) {
+    logger.warn('⚠️  Razorpay credentials not configured. Payment features will be disabled.');
+    throw new Error('Razorpay credentials not configured');
+  }
+
   try {
-    if (!razorpayInstance) {
-      if (!config.RAZORPAY_KEY_ID || !config.RAZORPAY_KEY_SECRET) {
-        logger.warn('⚠️  Razorpay credentials not configured. Payment features will be disabled.');
-        throw new Error('Razorpay credentials not configured');
-      }
+    razorpayInstance = new Razorpay({
+      key_id: config.RAZORPAY_KEY_ID,
+      key_secret: config.RAZORPAY_KEY_SECRET,
+    });
 
-      razorpayInstance = new Razorpay({
-        key_id: config.RAZORPAY_KEY_ID,
-        key_secret: config.RAZORPAY_KEY_SECRET,
-      });
-
-      logger.info('✅ Razorpay initialized successfully');
-    }
-
+    logger.info('✅ Razorpay initialized successfully');
     return razorpayInstance;
   } catch (error) {
     logger.error('❌ Failed to initialize Razorpay:', error);

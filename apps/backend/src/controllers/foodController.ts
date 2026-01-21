@@ -133,7 +133,7 @@ export const getFoodItemById = asyncHandler(
  */
 export const createFoodItem = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
-    const { name, price, categoryId, description, image, availabilityStatus } =
+    const { name, price, categoryId, description, image, availabilityStatus, isVeg } =
       req.body;
 
     const item = await foodService.createFoodItem({
@@ -143,6 +143,7 @@ export const createFoodItem = asyncHandler(
       description,
       image,
       availabilityStatus,
+      isVeg,
     });
 
     logger.info(`Food item created: ${item.name} by ${req.user?.email}`);
@@ -157,7 +158,7 @@ export const createFoodItem = asyncHandler(
 export const updateFoodItem = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const { id } = req.params;
-    const { name, price, categoryId, description, image, availabilityStatus } =
+    const { name, price, categoryId, description, image, availabilityStatus, isVeg } =
       req.body;
 
     const item = await foodService.updateFoodItem(id, {
@@ -167,6 +168,7 @@ export const updateFoodItem = asyncHandler(
       description,
       image,
       availabilityStatus,
+      isVeg,
     });
 
     logger.info(`Food item updated: ${item.name} by ${req.user?.email}`);

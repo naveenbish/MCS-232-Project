@@ -67,6 +67,7 @@ export const adminFoodApi = createApi({
       invalidatesTags: (result, error, { id }) => [
         { type: 'FoodItems', id },
         { type: 'FoodItems', id: 'LIST' },
+        'Categories', // Invalidate categories to update item counts
       ],
     }),
 

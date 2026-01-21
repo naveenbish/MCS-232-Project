@@ -122,7 +122,7 @@ export default function CheckoutPage() {
 
       const paymentResult = await createPayment({
         orderId: order.id,
-        amount: order.totalAmount,
+        amount: parseFloat(String(order.totalAmount)),
       }).unwrap();
 
       if (!paymentResult.success || !paymentResult.data) {

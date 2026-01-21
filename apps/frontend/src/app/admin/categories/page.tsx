@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/hooks';
-import { useGetCategoriesQuery } from '@/services/food';
+import { useGetCategoriesQuery, useGetFoodItemsQuery } from '@/services/food';
 import {
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
+  useUpdateFoodItemMutation,
 } from '@/services/adminFood';
 import { toast } from 'sonner';
 import { PageHeader, PageHeaderMain } from '@/components/layout/page-header';
@@ -33,19 +34,30 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
-import type { Category, CreateCategoryDto, UpdateCategoryDto } from '@/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ArrowLeft, Plus, Edit, Trash2, Loader2, Eye, Package } from 'lucide-react';
+import type { Category, CreateCategoryDto, UpdateCategoryDto, FoodItem } from '@/types';
 
 export default function AdminCategoriesPage() {
   const router = useRouter();
   const user = useAppSelector((state) => state.userDetails);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isItemsDialogOpen, setIsItemsDialogOpen] = useState(false);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
+  const [selectedItemForAssign, setSelectedItemForAssign] = useState<FoodItem | null>(null);
+  const [newCategoryId, setNewCategoryId] = useState<string>('');
   const [formData, setFormData] = useState<Partial<CreateCategoryDto>>({
     name: '',
     description: '',
-    imageUrl: '',
   });
 
   // Redirect if not admin
@@ -57,11 +69,17 @@ export default function AdminCategoriesPage() {
 
   // Fetch categories
   const { data: categoriesData, isLoading } = useGetCategoriesQuery();
+  const { data: foodItemsData, refetch: refetchFoodItems } = useGetFoodItemsQuery(
+    viewingCategory ? { categoryId: viewingCategory.id, limit: 100 } : undefined,
+    { skip: !viewingCategory }
+  );
   const [createCategory, { isLoading: isCreating }] = useCreateCategoryMutation();
   const [updateCategory, { isLoading: isUpdating }] = useUpdateCategoryMutation();
   const [deleteCategory] = useDeleteCategoryMutation();
+  const [updateFoodItem, { isLoading: isUpdatingItem }] = useUpdateFoodItemMutation();
 
   const categories = categoriesData?.data?.categories || [];
+  const categoryItems = foodItemsData?.data || [];
 
   const handleAdd = async () => {
     if (!formData.name) {
@@ -117,7 +135,6 @@ export default function AdminCategoriesPage() {
     setFormData({
       name: '',
       description: '',
-      imageUrl: '',
     });
   };
 
@@ -126,9 +143,38 @@ export default function AdminCategoriesPage() {
     setFormData({
       name: category.name,
       description: category.description || '',
-      imageUrl: category.imageUrl || '',
     });
     setIsEditDialogOpen(true);
+  };
+
+  const openItemsDialog = (category: Category) => {
+    setViewingCategory(category);
+    setIsItemsDialogOpen(true);
+  };
+
+  const openAssignDialog = (item: FoodItem) => {
+    setSelectedItemForAssign(item);
+    setNewCategoryId(item.categoryId);
+    setIsAssignDialogOpen(true);
+  };
+
+  const handleAssignCategory = async () => {
+    if (!selectedItemForAssign || !newCategoryId) return;
+
+    try {
+      const result = await updateFoodItem({
+        id: selectedItemForAssign.id,
+        data: { categoryId: newCategoryId },
+      }).unwrap();
+      if (result.success) {
+        toast.success('Item category updated successfully');
+        setIsAssignDialogOpen(false);
+        setSelectedItemForAssign(null);
+        refetchFoodItems();
+      }
+    } catch (error: any) {
+      toast.error(error?.data?.message || 'Failed to update item category');
+    }
   };
 
   if (isLoading) {
@@ -205,8 +251,12 @@ export default function AdminCategoriesPage() {
                       {category.description || 'No description'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">
-                        {category.foodItems?.length || 0} items
+                      <Badge
+                        variant="secondary"
+                        className="cursor-pointer hover:bg-secondary/80"
+                        onClick={() => openItemsDialog(category)}
+                      >
+                        {category._count?.foodItems || 0} items
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -217,8 +267,18 @@ export default function AdminCategoriesPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => openItemsDialog(category)}
+                          className="cursor-pointer"
+                          title="View Items"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => openEditDialog(category)}
                           className="cursor-pointer"
+                          title="Edit Category"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -227,6 +287,7 @@ export default function AdminCategoriesPage() {
                           size="sm"
                           onClick={() => handleDelete(category.id)}
                           className="text-destructive hover:text-destructive cursor-pointer"
+                          title="Delete Category"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -266,15 +327,6 @@ export default function AdminCategoriesPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Refreshing drinks and beverages"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="imageUrl">Image URL</Label>
-              <Input
-                id="imageUrl"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                placeholder="https://example.com/image.jpg"
               />
             </div>
           </div>
@@ -322,14 +374,6 @@ export default function AdminCategoriesPage() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-imageUrl">Image URL</Label>
-              <Input
-                id="edit-imageUrl"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-              />
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
@@ -337,6 +381,143 @@ export default function AdminCategoriesPage() {
             </Button>
             <Button onClick={handleEdit} disabled={isUpdating}>
               {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Category'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Items Dialog */}
+      <Dialog open={isItemsDialogOpen} onOpenChange={(open: boolean) => {
+        setIsItemsDialogOpen(open);
+        if (!open) setViewingCategory(null);
+      }}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Items in &quot;{viewingCategory?.name}&quot;
+            </DialogTitle>
+            <DialogDescription>
+              {categoryItems.length} food item(s) in this category
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {categoryItems.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No items in this category yet.</p>
+                <p className="text-sm mt-2">Add items from the Food Items management page.</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {categoryItems.map((item: FoodItem) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-3">
+                          {item.image && (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="h-10 w-10 rounded object-cover"
+                            />
+                          )}
+                          <div>
+                            <p>{item.name}</p>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>₹{Number(item.price).toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge variant={item.availabilityStatus ? 'default' : 'secondary'}>
+                          {item.availabilityStatus ? 'Available' : 'Unavailable'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openAssignDialog(item)}
+                          className="cursor-pointer"
+                        >
+                          Change Category
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsItemsDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Category Dialog */}
+      <Dialog open={isAssignDialogOpen} onOpenChange={(open: boolean) => {
+        setIsAssignDialogOpen(open);
+        if (!open) setSelectedItemForAssign(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Category</DialogTitle>
+            <DialogDescription>
+              Move &quot;{selectedItemForAssign?.name}&quot; to a different category
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Select Category</Label>
+              <Select
+                value={newCategoryId}
+                onValueChange={setNewCategoryId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssignCategory}
+              disabled={isUpdatingItem || !newCategoryId || newCategoryId === selectedItemForAssign?.categoryId}
+            >
+              {isUpdatingItem ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Updating...

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { orderApi } from '@/services/order';
 import { adminOrderApi } from '@/services/adminOrder';
 import { store } from '@/store';
+import Cookies from 'js-cookie';
 
 interface SocketContextType {
   isConnected: boolean;
@@ -21,15 +22,15 @@ const SocketContext = createContext<SocketContextType>({
 });
 
 export function SocketProvider({ children }: { children: ReactNode }) {
-  const accessToken = useAppSelector(state => state.auth.accessToken);
-  const user = useAppSelector(state => state.userDetails.user);
+  const user = useAppSelector(state => state.userDetails);
   const [isConnected, setIsConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const clearUnread = () => setUnreadCount(0);
 
   useEffect(() => {
-    if (!accessToken) return;
+    const accessToken = Cookies.get('access_token');
+    if (!accessToken || !user.id) return;
 
     const socket = socketManager.connect(accessToken);
 
@@ -48,13 +49,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setUnreadCount(prev => prev + 1);
       // Invalidate RTK Query cache for consistent data
       store.dispatch(orderApi.util.invalidateTags(['Orders', 'Order']));
-      if (user?.role === 'admin') {
+      if (user.role === 'admin') {
         store.dispatch(adminOrderApi.util.invalidateTags(['AdminOrders']));
       }
     });
 
     // Listen for new orders (admin only)
-    if (user?.role === 'admin') {
+    if (user.role === 'admin') {
       socket.on('order:new', (data) => {
         toast.success('New order received!', {
           description: `Order #${data.id.slice(0, 8)} from ${data.user?.name}`
@@ -75,7 +76,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       socketManager.disconnect();
       setIsConnected(false);
     };
-  }, [accessToken, user]);
+  }, [user.id, user.role]);
 
   return (
     <SocketContext.Provider value={{ isConnected, unreadCount, clearUnread }}>

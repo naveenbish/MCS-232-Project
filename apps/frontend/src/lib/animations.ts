@@ -21,6 +21,24 @@ export const staggerContainer = {
   }
 };
 
+export const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1
+    }
+  },
+  exit: {
+    opacity: 0,
+    transition: {
+      staggerChildren: 0.05,
+      staggerDirection: -1
+    }
+  }
+};
+
 export const itemVariants = {
   hidden: { opacity: 0, x: -50 },
   visible: {

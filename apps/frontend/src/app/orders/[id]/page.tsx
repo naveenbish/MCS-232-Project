@@ -45,7 +45,7 @@ export default function OrderDetailPage() {
   const { data, isLoading, error } = useGetOrderByIdQuery(orderId);
   const [cancelOrder, { isLoading: isCancelling }] = useCancelOrderMutation();
 
-  const order = data?.data?.order;
+  const order = data?.data;
 
   // Join order room for real-time updates
   useEffect(() => {

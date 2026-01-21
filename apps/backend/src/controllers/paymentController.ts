@@ -80,7 +80,7 @@ export const getPaymentByOrderId = asyncHandler(
 
     const payment = await paymentService.getPaymentByOrderId(orderId, userId);
 
-    sendSuccess(res, 'Payment details retrieved successfully', { payment });
+    sendSuccess(res, 'Payment details retrieved successfully', payment);
   }
 );
 

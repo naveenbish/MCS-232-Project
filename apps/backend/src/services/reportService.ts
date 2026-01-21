@@ -265,32 +265,106 @@ export const getPaymentReport = async (startDate?: Date, endDate?: Date) => {
  * Get dashboard statistics
  */
 export const getDashboardStats = async () => {
+  // Get basic counts
   const [
     totalUsers,
     totalOrders,
     totalRevenue,
     totalFoodItems,
-    pendingOrders,
-    completedOrders,
+    activeOrders,
   ] = await Promise.all([
     prisma.user.count(),
-    prisma.order.count(),
+    prisma.order.count({ where: { status: { not: 'PENDING' } } }), // Only count paid orders
     prisma.payment.aggregate({
       where: { paymentStatus: 'COMPLETED' },
       _sum: { amount: true },
     }),
     prisma.foodItem.count(),
-    prisma.order.count({ where: { status: 'PENDING' } }),
-    prisma.order.count({ where: { status: 'COMPLETED' } }),
+    prisma.order.count({
+      where: {
+        status: {
+          in: ['CONFIRMED', 'PREPARING', 'OUT_FOR_DELIVERY'],
+        },
+      },
+    }),
   ]);
+
+  // Get orders by status for pie chart
+  const orderStatusData = await prisma.order.groupBy({
+    by: ['status'],
+    where: { status: { not: 'PENDING' } }, // Exclude unpaid orders
+    _count: { status: true },
+  });
+
+  const ordersByStatus: Record<string, number> = {};
+  orderStatusData.forEach((item) => {
+    ordersByStatus[item.status] = item._count.status;
+  });
+
+  // Get revenue by day for last 7 days
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const revenueData = await prisma.payment.findMany({
+    where: {
+      paymentStatus: 'COMPLETED',
+      createdAt: { gte: sevenDaysAgo },
+    },
+    select: {
+      amount: true,
+      createdAt: true,
+    },
+  });
+
+  // Group revenue by day
+  const revenueByDayMap = new Map<string, number>();
+  revenueData.forEach((payment) => {
+    const dateStr = payment.createdAt.toISOString().split('T')[0];
+    const existing = revenueByDayMap.get(dateStr) || 0;
+    revenueByDayMap.set(dateStr, existing + Number(payment.amount));
+  });
+
+  const revenueByDay = Array.from(revenueByDayMap.entries()).map(([date, revenue]) => ({
+    date,
+    revenue,
+  }));
+
+  // Get popular items (top 5 most ordered)
+  const popularItemsData = await prisma.orderDetail.groupBy({
+    by: ['itemId'],
+    _sum: { quantity: true },
+    _count: { id: true },
+    orderBy: {
+      _sum: { quantity: 'desc' },
+    },
+    take: 5,
+  });
+
+  // Get item names for popular items
+  const itemIds = popularItemsData.map((item) => item.itemId);
+  const items = await prisma.foodItem.findMany({
+    where: { id: { in: itemIds } },
+    select: { id: true, name: true },
+  });
+
+  const itemNameMap = new Map(items.map((item) => [item.id, item.name]));
+
+  const popularItems = popularItemsData.map((item) => ({
+    itemId: item.itemId,
+    name: itemNameMap.get(item.itemId) || 'Unknown',
+    orderCount: item._count.id,
+    totalQuantity: item._sum.quantity || 0,
+  }));
 
   return {
     totalUsers,
     totalOrders,
-    totalRevenue: totalRevenue._sum.amount || 0,
+    totalRevenue: Number(totalRevenue._sum.amount) || 0,
     totalFoodItems,
-    pendingOrders,
-    completedOrders,
+    activeOrders,
+    ordersByStatus,
+    revenueByDay,
+    popularItems,
   };
 };
 

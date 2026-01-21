@@ -72,7 +72,7 @@ export const getDashboardStats = asyncHandler(
   async (req: AuthRequest, res: Response): Promise<void> => {
     const stats = await reportService.getDashboardStats();
 
-    sendSuccess(res, 'Dashboard statistics retrieved successfully', { stats });
+    sendSuccess(res, 'Dashboard statistics retrieved successfully', stats);
   }
 );
 

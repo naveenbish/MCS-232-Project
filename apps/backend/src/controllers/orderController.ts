@@ -21,7 +21,7 @@ export const createOrder = asyncHandler(
     const order = await orderService.createOrder(req.user.id, orderData);
 
     logger.info(`Order created: ${order.id} by user ${req.user.email}`);
-    sendCreated(res, 'Order created successfully', { order });
+    sendCreated(res, 'Order created successfully', order);
   }
 );
 
@@ -35,7 +35,7 @@ export const getOrderById = asyncHandler(
     const userId = req.user?.role === 'user' ? req.user.id : undefined;
 
     const order = await orderService.getOrderById(id, userId);
-    sendSuccess(res, 'Order retrieved successfully', { order });
+    sendSuccess(res, 'Order retrieved successfully', order);
   }
 );
 
@@ -101,7 +101,7 @@ export const updateOrderStatus = asyncHandler(
     const order = await orderService.updateOrderStatus(id, status as OrderStatus);
 
     logger.info(`Order ${id} status updated to ${status} by ${req.user?.email}`);
-    sendSuccess(res, 'Order status updated successfully', { order });
+    sendSuccess(res, 'Order status updated successfully', order);
   }
 );
 
@@ -117,7 +117,7 @@ export const cancelOrder = asyncHandler(
     const order = await orderService.cancelOrder(id, userId);
 
     logger.info(`Order ${id} cancelled by ${req.user?.email}`);
-    sendSuccess(res, 'Order cancelled successfully', { order });
+    sendSuccess(res, 'Order cancelled successfully', order);
   }
 );
 

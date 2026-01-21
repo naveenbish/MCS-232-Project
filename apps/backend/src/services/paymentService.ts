@@ -4,7 +4,7 @@ import { getRazorpayInstance } from '../config/razorpay';
 import { config } from '../config/env';
 import { CreatePaymentOrderInput, VerifyPaymentInput, AppError } from '../types';
 import logger from '../config/logger';
-import { emitPaymentUpdate, emitOrderUpdate } from '../config/socket';
+import { emitPaymentUpdate, emitOrderUpdate, emitNewOrderNotification } from '../config/socket';
 
 /**
  * Create Razorpay order
@@ -24,36 +24,56 @@ export const createPaymentOrder = async (data: CreatePaymentOrderInput) => {
     throw new AppError('Payment already completed for this order', 400);
   }
 
-  // Create Razorpay order
-  const razorpay = getRazorpayInstance();
+  // Check if Razorpay is configured
+  if (!config.RAZORPAY_KEY_ID || !config.RAZORPAY_KEY_SECRET) {
+    throw new AppError('Payment gateway not configured. Please contact support.', 503);
+  }
 
-  const razorpayOrder = await razorpay.orders.create({
-    amount: Math.round(data.amount * 100), // Amount in paise
-    currency: 'INR',
-    receipt: `order_${data.orderId}`,
-    notes: {
-      orderId: data.orderId,
-    },
-  });
+  try {
+    // Create Razorpay order
+    const razorpay = getRazorpayInstance();
 
-  // Update payment record with Razorpay order ID
-  const payment = await prisma.payment.update({
-    where: { orderId: data.orderId },
-    data: {
+    const razorpayOrder = await razorpay.orders.create({
+      amount: Math.round(data.amount * 100), // Amount in paise
+      currency: 'INR',
+      receipt: data.orderId.replace(/-/g, '').slice(0, 40), // Max 40 chars
+      notes: {
+        orderId: data.orderId,
+      },
+    });
+
+    // Update payment record with Razorpay order ID
+    const payment = await prisma.payment.update({
+      where: { orderId: data.orderId },
+      data: {
+        razorpayOrderId: razorpayOrder.id,
+        paymentStatus: 'PENDING',
+        amount: data.amount,
+      },
+    });
+
+    logger.info(`Razorpay order created: ${razorpayOrder.id} for order ${data.orderId}`);
+
+    return {
       razorpayOrderId: razorpayOrder.id,
-      paymentStatus: 'PENDING',
       amount: data.amount,
-    },
-  });
+      currency: 'INR',
+      keyId: config.RAZORPAY_KEY_ID,
+    };
+  } catch (error: any) {
+    logger.error('Razorpay order creation failed:', {
+      error: error?.message || error,
+      description: error?.error?.description,
+      orderId: data.orderId,
+    });
 
-  logger.info(`Razorpay order created: ${razorpayOrder.id} for order ${data.orderId}`);
+    // Handle Razorpay specific errors
+    if (error?.error?.description) {
+      throw new AppError(`Payment error: ${error.error.description}`, 400);
+    }
 
-  return {
-    razorpayOrderId: razorpayOrder.id,
-    amount: data.amount,
-    currency: 'INR',
-    keyId: config.RAZORPAY_KEY_ID,
-  };
+    throw new AppError('Failed to create payment order. Please try again.', 500);
+  }
 };
 
 /**
@@ -111,6 +131,26 @@ export const verifyPayment = async (data: VerifyPaymentInput) => {
     message: 'Order confirmed, preparing your food',
     timestamp: new Date()
   });
+
+  // Get full order details and notify admins (only after successful payment)
+  const fullOrder = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, contact: true },
+      },
+      orderDetails: {
+        include: {
+          foodItem: { include: { category: true } },
+        },
+      },
+      payment: true,
+    },
+  });
+
+  if (fullOrder) {
+    emitNewOrderNotification(fullOrder);
+  }
 
   return result;
 };

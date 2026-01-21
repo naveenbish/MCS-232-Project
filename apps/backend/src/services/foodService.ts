@@ -247,6 +247,7 @@ export const createFoodItem = async (data: CreateFoodItemInput) => {
       description: data.description,
       image: data.image,
       availabilityStatus: data.availabilityStatus ?? true,
+      isVeg: data.isVeg ?? true,
     },
     include: {
       category: true,
@@ -283,6 +284,7 @@ export const updateFoodItem = async (
       ...(data.availabilityStatus !== undefined && {
         availabilityStatus: data.availabilityStatus,
       }),
+      ...(data.isVeg !== undefined && { isVeg: data.isVeg }),
     },
     include: {
       category: true,

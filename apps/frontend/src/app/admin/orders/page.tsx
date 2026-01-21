@@ -10,6 +10,7 @@ import { useSocket } from '@/contexts/SocketContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
   Table,
   TableBody,
@@ -31,6 +32,13 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Package,
@@ -41,7 +49,14 @@ import {
   Wifi,
   WifiOff,
   Bell,
+  Eye,
+  MapPin,
+  Phone,
+  User,
+  ShoppingBag,
+  CreditCard,
 } from 'lucide-react';
+import type { Order } from '@/types';
 
 const ORDER_STATUSES = [
   'PENDING',
@@ -66,7 +81,14 @@ export default function AdminOrdersPage() {
   const router = useRouter();
   const user = useAppSelector((state) => state.userDetails);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { isConnected, unreadCount, clearUnread } = useSocket();
+
+  const handleViewOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setIsDialogOpen(true);
+  };
 
   // Redirect if not admin
   useEffect(() => {
@@ -87,7 +109,7 @@ export default function AdminOrdersPage() {
     try {
       const result = await updateOrderStatus({
         id: orderId,
-        status: newStatus,
+        data: { status: newStatus },
       }).unwrap();
 
       if (result.success) {
@@ -279,7 +301,11 @@ export default function AdminOrdersPage() {
                       </TableHeader>
                       <TableBody>
                         {orders.map((order) => (
-                          <TableRow key={order.id}>
+                          <TableRow
+                            key={order.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleViewOrder(order)}
+                          >
                             <TableCell className="font-mono text-sm">
                               #{order.id.slice(0, 8).toUpperCase()}
                             </TableCell>
@@ -315,23 +341,33 @@ export default function AdminOrdersPage() {
                                 {order.status.replace(/_/g, ' ')}
                               </Badge>
                             </TableCell>
-                            <TableCell>
-                              <Select
-                                value={order.status}
-                                onValueChange={(value) => handleStatusUpdate(order.id, value)}
-                                disabled={isUpdating || order.status === 'CANCELLED' || order.status === 'DELIVERED'}
-                              >
-                                <SelectTrigger className="w-36">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {ORDER_STATUSES.map((status) => (
-                                    <SelectItem key={status} value={status}>
-                                      {status.replace(/_/g, ' ')}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleViewOrder(order)}
+                                  className="h-8 w-8"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Select
+                                  value={order.status}
+                                  onValueChange={(value) => handleStatusUpdate(order.id, value)}
+                                  disabled={isUpdating || order.status === 'CANCELLED' || order.status === 'DELIVERED'}
+                                >
+                                  <SelectTrigger className="w-36">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {ORDER_STATUSES.map((status) => (
+                                      <SelectItem key={status} value={status}>
+                                        {status.replace(/_/g, ' ')}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -343,6 +379,167 @@ export default function AdminOrdersPage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Order Details Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Order #{selectedOrder?.id.slice(0, 8).toUpperCase()}
+            </DialogTitle>
+            <DialogDescription>
+              Order details and information
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-6">
+              {/* Status and Payment */}
+              <div className="flex items-center gap-4">
+                <Badge variant={getStatusVariant(selectedOrder.status)} className="text-sm">
+                  {selectedOrder.status.replace(/_/g, ' ')}
+                </Badge>
+                <Badge variant={getPaymentStatusVariant(selectedOrder.payment?.paymentStatus || 'PENDING')} className="text-sm">
+                  Payment: {selectedOrder.payment?.paymentStatus || 'PENDING'}
+                </Badge>
+              </div>
+
+              <Separator />
+
+              {/* Customer Info */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Customer Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Name</p>
+                    <p className="font-medium">{selectedOrder.user?.name || 'Unknown'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Email</p>
+                    <p className="font-medium">{selectedOrder.user?.email || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Contact</p>
+                    <p className="font-medium">{selectedOrder.contactNumber || selectedOrder.user?.contact || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Order Date</p>
+                    <p className="font-medium" suppressHydrationWarning>
+                      {formatDate(new Date(selectedOrder.createdAt))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Delivery Address */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Delivery Address
+                </h3>
+                <p className="text-sm">{selectedOrder.deliveryAddress || 'No address provided'}</p>
+              </div>
+
+              <Separator />
+
+              {/* Order Items */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4" />
+                  Order Items ({selectedOrder.orderDetails?.length || 0})
+                </h3>
+                <div className="space-y-3">
+                  {selectedOrder.orderDetails?.map((item: any) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center">
+                          {item.foodItem?.image ? (
+                            <img
+                              src={item.foodItem.image}
+                              alt={item.foodItem.name}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <Package className="h-6 w-6 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium">{item.foodItem?.name || 'Unknown Item'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatPrice(parseFloat(item.priceAtTime))} × {item.quantity}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="font-semibold">
+                        {formatPrice(parseFloat(item.subtotal || item.priceAtTime * item.quantity))}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Payment Summary */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  Payment Summary
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatPrice(parseFloat(selectedOrder.totalAmount))}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Delivery Fee</span>
+                    <span className="text-green-600">FREE</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between font-semibold text-base">
+                    <span>Total</span>
+                    <span className="text-primary">{formatPrice(parseFloat(selectedOrder.totalAmount))}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Update Status */}
+              <Separator />
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Update Status:</span>
+                <Select
+                  value={selectedOrder.status}
+                  onValueChange={(value) => {
+                    handleStatusUpdate(selectedOrder.id, value);
+                    setSelectedOrder({ ...selectedOrder, status: value });
+                  }}
+                  disabled={isUpdating || selectedOrder.status === 'CANCELLED' || selectedOrder.status === 'DELIVERED'}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ORDER_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.replace(/_/g, ' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

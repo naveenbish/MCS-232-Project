@@ -55,6 +55,7 @@ export interface CreateFoodItemInput {
   description?: string;
   image?: string;
   availabilityStatus?: boolean;
+  isVeg?: boolean;
 }
 
 export interface UpdateFoodItemInput {
@@ -64,6 +65,7 @@ export interface UpdateFoodItemInput {
   description?: string;
   image?: string;
   availabilityStatus?: boolean;
+  isVeg?: boolean;
 }
 
 // Category Types

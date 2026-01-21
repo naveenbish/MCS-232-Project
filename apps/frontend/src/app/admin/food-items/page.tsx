@@ -53,10 +53,9 @@ export default function AdminFoodItemsPage() {
     description: '',
     price: 0,
     categoryId: '',
-    imageUrl: '',
-    preparationTime: 15,
+    image: '',
     isVeg: false,
-    isAvailable: true,
+    availabilityStatus: true,
   });
 
   // Redirect if not admin
@@ -131,10 +130,9 @@ export default function AdminFoodItemsPage() {
       description: '',
       price: 0,
       categoryId: '',
-      imageUrl: '',
-      preparationTime: 15,
+      image: '',
       isVeg: false,
-      isAvailable: true,
+      availabilityStatus: true,
     });
   };
 
@@ -142,13 +140,12 @@ export default function AdminFoodItemsPage() {
     setEditingItem(item);
     setFormData({
       name: item.name,
-      description: item.description,
-      price: item.price,
+      description: item.description || '',
+      price: Number(item.price),
       categoryId: item.categoryId,
-      imageUrl: item.imageUrl || '',
-      preparationTime: item.preparationTime,
-      isVeg: item.isVeg,
-      isAvailable: item.isAvailable,
+      image: item.image || '',
+      isVeg: item.isVeg || false,
+      availabilityStatus: item.availabilityStatus,
     });
     setIsEditDialogOpen(true);
   };
@@ -246,8 +243,8 @@ export default function AdminFoodItemsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={item.isAvailable ? 'default' : 'secondary'}>
-                        {item.isAvailable ? 'Available' : 'Unavailable'}
+                      <Badge variant={item.availabilityStatus ? 'default' : 'secondary'}>
+                        {item.availabilityStatus ? 'Available' : 'Unavailable'}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -326,34 +323,24 @@ export default function AdminFoodItemsPage() {
                 placeholder="Delicious burger with cheese and vegetables"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="price">Price</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
-                  placeholder="99.99"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="preparationTime">Preparation Time (mins)</Label>
-                <Input
-                  id="preparationTime"
-                  type="number"
-                  value={formData.preparationTime}
-                  onChange={(e) => setFormData({ ...formData, preparationTime: parseInt(e.target.value) })}
-                  placeholder="15"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="price">Price (₹)</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.price || ''}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : 0 })}
+                placeholder="99.99"
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="imageUrl">Image URL</Label>
+              <Label htmlFor="image">Image URL</Label>
               <Input
-                id="imageUrl"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                id="image"
+                value={formData.image}
+                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                 placeholder="https://example.com/image.jpg"
               />
             </div>
@@ -368,11 +355,11 @@ export default function AdminFoodItemsPage() {
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
-                  id="isAvailable"
-                  checked={formData.isAvailable}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isAvailable: checked })}
+                  id="availabilityStatus"
+                  checked={formData.availabilityStatus}
+                  onCheckedChange={(checked) => setFormData({ ...formData, availabilityStatus: checked })}
                 />
-                <Label htmlFor="isAvailable">Available</Label>
+                <Label htmlFor="availabilityStatus">Available</Label>
               </div>
             </div>
           </div>
@@ -440,32 +427,23 @@ export default function AdminFoodItemsPage() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-price">Price</Label>
-                <Input
-                  id="edit-price"
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-preparationTime">Preparation Time (mins)</Label>
-                <Input
-                  id="edit-preparationTime"
-                  type="number"
-                  value={formData.preparationTime}
-                  onChange={(e) => setFormData({ ...formData, preparationTime: parseInt(e.target.value) })}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-price">Price (₹)</Label>
+              <Input
+                id="edit-price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.price || ''}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value ? parseFloat(e.target.value) : 0 })}
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-imageUrl">Image URL</Label>
+              <Label htmlFor="edit-image">Image URL</Label>
               <Input
-                id="edit-imageUrl"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                id="edit-image"
+                value={formData.image}
+                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
               />
             </div>
             <div className="flex items-center justify-between">
@@ -479,11 +457,11 @@ export default function AdminFoodItemsPage() {
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
-                  id="edit-isAvailable"
-                  checked={formData.isAvailable}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isAvailable: checked })}
+                  id="edit-availabilityStatus"
+                  checked={formData.availabilityStatus}
+                  onCheckedChange={(checked) => setFormData({ ...formData, availabilityStatus: checked })}
                 />
-                <Label htmlFor="edit-isAvailable">Available</Label>
+                <Label htmlFor="edit-availabilityStatus">Available</Label>
               </div>
             </div>
           </div>
